@@ -1,0 +1,13 @@
+[project]
+name = "parkvision-ai"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.129.0",
+    "opencv-python-headless>=4.13.0.92",
+    "python-multipart>=0.0.22",
+    "ultralytics>=8.4.14",
+    "uvicorn>=0.41.0",
+]
