@@ -1,6 +1,34 @@
-data
-
-__pycache__
-.venv/
+# Environnement
 .env
+mlflow_utils/mlflow.env
 
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Données & vidéos
+data/
+
+# Modèles YOLO (fichiers lourds)
+model_data/
+
+# Bases de données locales
+*.db
+mlflow.db
+test.db
+
+# MLflow
+mlruns/
+
+# Pytest
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
