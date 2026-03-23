@@ -20,6 +20,7 @@ from app.scripts.notification import connected_clients, notify_parking_change
 from app.scripts.car_data import get_car_info, search_car_models, get_all_makes
 from mlflow_utils.mlflow_tracker import log_detection_event
 from ultralytics import YOLO
+import asyncio
 
 # ── Init ──────────────────────────────────────────────────────────────────────
 
@@ -327,6 +328,7 @@ def get_makes():
 @app.websocket("/ws/parking")
 async def websocket_parking(websocket: WebSocket):
     await websocket.accept()
+    print(" NOUNEAU CLIENT CONNECTÉ !")
     connected_clients.append(websocket)
     try:
         while True:
@@ -337,15 +339,38 @@ async def websocket_parking(websocket: WebSocket):
 
 # ── YOLO Stream ───────────────────────────────────────────────────────────────
 
+
+
+# Récupérer la boucle d'événements principale au démarrage
+main_loop = None
+
 def send_detection_internal(parking_id: int, free: int, occupied: int):
     from app.db.session import SessionLocal
     db = SessionLocal()
     try:
+        # 1. Mise à jour DB
         db.add(ParkingDetection(parking_id=parking_id, free_spots=free, occupied_spots=occupied))
         db.commit()
-        print(f"[DB] ✅ parking {parking_id} → free={free}, occupied={occupied}")
+        
+        # 2. Notification WebSocket (Safe Threading)
+        if main_loop:
+            # On détermine le statut pour le toast
+            status = "full" if free == 0 else "available"
+            
+            # On prépare le message pour le frontend
+            data = {
+                "parking_id": parking_id,
+                "name": f"Parking {parking_id}", # Idéalement, récupère le vrai nom en DB
+                "free_spots": free,
+                "status": status
+            }
+            
+            # Envoi sécurisé vers la boucle principale
+            asyncio.run_coroutine_threadsafe(notify_parking_change(parking_id, data["name"], free), main_loop)
+            
+        print(f"[DB]  parking {parking_id} → free={free}")
     except Exception as e:
-        print(f"[DB] ❌ {e}")
+        print(f"[DB] Erreur : {e}")
         db.rollback()
     finally:
         db.close()
@@ -354,9 +379,9 @@ def send_detection_internal(parking_id: int, free: int, occupied: int):
 def run_detection_stream(video_path: str, parking_id: int):
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        print(f"❌ Impossible d'ouvrir {video_path}")
+        print(f" Impossible d'ouvrir {video_path}")
         return
-    print(f"🚀 Thread démarré parking {parking_id}")
+    print(f" Thread démarré parking {parking_id}")
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -382,9 +407,12 @@ def run_detection_stream(video_path: str, parking_id: int):
 
 @app.on_event("startup")
 async def startup():
+    global main_loop
+    main_loop = asyncio.get_running_loop() # <--- Crucial
+    
     for pid, path in {1: "data/video1.mp4", 2: "data/video2.mp4", 3: "data/video3.mp4"}.items():
         threading.Thread(target=run_detection_stream, args=(path, pid), daemon=True).start()
-        print(f"✅ Thread démarré pour parking {pid}")
+        print(f"Thread YOLO démarré pour parking {pid}")
 
 
 @app.get("/api/parking/{parking_id}/stream", tags=["Stream"])
