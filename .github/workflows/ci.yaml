@@ -1,0 +1,35 @@
+# .github/workflows/ci.yml
+name: CI — ParkVision AI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend — Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint with Ruff
+        run: uv run ruff check .
+
+      # .github/workflows/ci.yml
+      - name: Run Pytest
+        run: uv run pytest test/ -v # pas de tests pour l'instant → ne bloque pas le CI
