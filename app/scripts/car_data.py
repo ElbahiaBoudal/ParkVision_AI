@@ -157,9 +157,6 @@ def get_vehicle_type(make: str, model: str) -> str:
 # -----------------------------
 
 def search_car_models(query: str) -> list:
-    """
-    Recherche des modèles via NHTSA pour l'autocomplétion.
-    """
     query = query.strip().lower()
     results = []
 
@@ -170,18 +167,26 @@ def search_car_models(query: str) -> list:
         "Skoda", "Volvo", "Porsche", "Ferrari", "Tesla", "Mazda",
     ]
 
+    query_parts = query.split()  # séparer marque et modèle
+    query_make = query_parts[0] if query_parts else ""
+    query_model = " ".join(query_parts[1:]) if len(query_parts) > 1 else ""
+
     for make in POPULAR_MAKES:
-        if query in make.lower():
-            models = get_models_for_make(make)
+        models = get_models_for_make(make)
+
+        # Recherche par marque uniquement si query_model vide
+        if query_make and query_make in make.lower() and not query_model:
             for model in models[:20]:
                 results.append({"make": make, "model": model})
-            if results:
-                break
-        else:
-            models = get_models_for_make(make)
-            for model in models:
-                if query in model.lower():
-                    results.append({"make": make, "model": model})
+            break
+
+        # Recherche par modèle
+        for model in models:
+            if query_model and query_model in model.lower():
+                results.append({"make": make, "model": model})
+            # Recherche juste par marque si pas de modèle précisé
+            elif not query_model and query_make in make.lower():
+                results.append({"make": make, "model": model})
 
     return results[:30]
 
