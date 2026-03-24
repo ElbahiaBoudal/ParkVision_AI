@@ -3,13 +3,13 @@ import pytest
 from unittest.mock import MagicMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from app.db.session import Base, get_db  # noqa: E402
+from app.api.main import app  # noqa: E402
 
 # Mock YOLO avant l'import de main pour éviter le chargement du modèle
 import sys
 sys.modules["ultralytics"] = MagicMock()
 
-from app.db.session import Base, get_db
-from app.api.main import app
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})

@@ -23,5 +23,5 @@ async def notify_parking_change(parking_id: int, parking_name: str, free_spots: 
     for client in connected_clients.copy():
         try:
             await client.send_json(data)
-        except:
+        except Exception:
             connected_clients.remove(client)

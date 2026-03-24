@@ -74,7 +74,7 @@ def send_detection(parking_id, free, occupied):
     }
 
     try:
-        res = requests.post(BACKEND_URL, json=data, headers=headers)
+        requests.post(BACKEND_URL, json=data, headers=headers)
         print(f"[✔] Parking {parking_id} → Free: {free}, Occupied: {occupied}")
     except Exception as e:
         print("[❌] Error sending:", e)

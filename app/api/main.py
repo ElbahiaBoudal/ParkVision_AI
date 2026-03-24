@@ -27,13 +27,15 @@ import asyncio
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.semconv.resource import ResourceAttributes
-RESOURCE_ATTRIBUTES = ResourceAttributes
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 import os
+
+RESOURCE_ATTRIBUTES = ResourceAttributes 
+
 
 # Configuration des ressources (Nom du service dans Jaeger)
 resource = Resource.create({
