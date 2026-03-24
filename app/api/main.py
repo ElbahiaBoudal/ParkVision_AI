@@ -4,7 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional
-import cv2, threading, time
+import cv2
+import threading
+import time
 
 from app.db.session import Base, engine, get_db
 from app.models.user import User
@@ -21,6 +23,45 @@ from app.scripts.car_data import get_car_info, search_car_models, get_all_makes
 from mlflow_utils.mlflow_tracker import log_detection_event
 from ultralytics import YOLO
 import asyncio
+# ── OpenTelemetry Setup ───────────────────────────────────────────────────────
+from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.semconv.resource import ResourceAttributes
+RESOURCE_ATTRIBUTES = ResourceAttributes
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+import os
+
+# Configuration des ressources (Nom du service dans Jaeger)
+resource = Resource.create({
+    "service.name": "parkingvision-backend",
+    "service.version": "2.0.0",
+    "deployment.environment": "development"
+})
+
+# Setup du Provider de traces
+tracer_provider = TracerProvider(resource=resource)
+
+# Exportateur vers le container Jaeger (utilise l'URL définie dans docker-compose)
+otlp_exporter = OTLPSpanExporter(
+    endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://jaeger:4317"),
+    insecure=True
+)
+
+tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
+trace.set_tracer_provider(tracer_provider)
+tracer = trace.get_tracer(__name__)
+
+# ── Fin Setup OTEL ────────────────────────────────────────────────────────────
+
+app = FastAPI(title="ParkingVision API", version="2.0.0")
+
+# Instrumentation automatique
+FastAPIInstrumentor.instrument_app(app)
+SQLAlchemyInstrumentor().instrument(engine=engine)
 
 # ── Init ──────────────────────────────────────────────────────────────────────
 
@@ -29,7 +70,7 @@ latest_frames = {}
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="ParkingVision API", version="2.0.0")
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -383,11 +424,17 @@ def run_detection_stream(video_path: str, parking_id: int):
         return
     print(f" Thread démarré parking {parking_id}")
     while True:
-        ret, frame = cap.read()
-        if not ret:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            continue
-        results = model(frame)
+        with tracer.start_as_current_span("yolo_inference") as span:
+            span.set_attribute("parking_id", parking_id)
+            
+            ret, frame = cap.read()
+            if not ret:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                continue
+                
+            results = model(frame)
+            # Tu peux ajouter des détails sur la détection dans Jaeger
+            span.set_attribute("boxes_detected", len(results[0].obb) if results[0].obb is not None else 0)
         annotated = results[0].plot()
         _, buffer = cv2.imencode('.jpg', annotated)
         latest_frames[parking_id] = buffer.tobytes()

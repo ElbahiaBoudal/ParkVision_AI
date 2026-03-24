@@ -3,7 +3,7 @@ parking_utile.py — Fonctions utilitaires pour la logique métier des parkings.
 """
 
 from math import radians, cos, sin, asin, sqrt
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 
 # -----------------------------
